@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Consulta de Sector</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            background-image: url('abg.png');
+            /* Asegúrate de que la imagen exista en la ruta especificada */
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+
+        .container {
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-control {
+            height: 60px;
+            /* Altura aumentada de los inputs */
+            width: 500px;
+            /* Ancho reducido de los inputs */
+            font-size: 2.25rem;
+            /* Tamaño de letra aumentado */
+        }
+
+        #sugerenciasDireccion {
+            background-color: #ffffff;
+            /* Fondo blanco para la lista */
+            color: #000000;
+            /* Texto en color negro */
+            position: absolute;
+            width: 300px;
+            /* Ajuste para coincidir con el ancho del input de dirección */
+            z-index: 1000;
+            /* Asegúrate de que la lista esté sobre otros elementos */
+            max-height: 200px;
+            /* Limita la altura y permite scroll */
+            overflow-y: auto;
+        }
+
+        #sugerenciasDireccion li {
+            cursor: pointer;
+            /* Cambia el cursor para indicar que los elementos son seleccionables */
+        }
+
+        .modal-content {
+            background-color: #333;
+            /* Fondo oscuro para la modal */
+            color: #fff;
+            /* Letra en blanco para la modal */
+        }
+
+        .button-group button {
+            margin-right: 10px;
+            /* Añade un margen a la derecha de cada botón */
+            height: 60px;
+            width: 150px;
+        }
+
+        .button-group button:last-child {
+            margin-right: 0;
+            /* Remueve el margen al último botón para evitar espacio extra al final */
+        }
+
+        .container h2,
+        .container label {
+            color: black;
+            /* Establece el color del texto a negro */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Consulta de Sector</h2>
+        <div class="form-group">
+            <label for="direccion">Dirección:</label>
+            <input type="text" class="form-control" id="direccion" oninput="sugerirDireccion()" autocomplete="off"
+                required>
+            <ul id="sugerenciasDireccion" class="list-group"></ul>
+        </div>
+        <div class="form-group">
+            <label for="numeracion">Numeración:</label>
+            <input type="number" class="form-control" id="numeracion" required>
+        </div>
+        <div class="button-group" style="display: flex;"> <!-- Contenedor para los botones con display flex -->
+            <button class="btn btn-primary" onclick="buscarSector()">Buscar</button>
+            <button type="button" class="btn btn-secondary" onclick="limpiarFormulario()">Limpiar</button>
+        </div>
+    </div>
+
+
+    <!-- Modal -->
+    <div class="modal fade" id="resultadoModal" tabindex="-1" role="dialog" aria-labelledby="modalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalLabel">Resultado de Búsqueda</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="resultadoModalTexto"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script>
+        const sectores = {
+            'Sector 1 ABG': 'Sector 1 - CECOSF Martin Henriquez, Ubicado en Martin Henriquez Nº 4537 - Fono: 226124506',
+            'Sector 2 ABG': 'Sector 2 - CESFAM Dr. Arturo Baeza Goñi, Ubicado en Alvarez de Toledo Nº 399 - Fono 223962235',
+            'Sector 3 ABG': 'Sector 3 - CESFAM Dr. Arturo Baeza Goñi, Ubicado en Alvarez de Toledo Nº 399 - Fono 223962211',
+
+            'Sector 1 STA': 'Sector 1 - CECOSF Coñimo, Ubicado en Catruman Nº 275 - Fono ',
+            'Sector 2 STA': 'Sector 2 - CESFAM Santa Teresa de los Andes, Huara Nº 5379 - Fono ',
+            'Sector 3 STA': 'Sector 3 - CESFAM Santa Teresa de los Andes, Huara Nº 5379 - Fono ',
+            'Sector 4 STA': 'Sector 4 - CESFAM Santa Teresa de los Andes, Huara Nº 5379 - Fono ',
+            'Sector 5 STA': 'Sector 5 - CECOSF Salvador Allende, Ubicado en Juan Aravena Nº 472 - Fono ',
+
+        };
+        const direcciones = [
+            { nombre: 'Alcalde Pedro Alarcon', rango: [{ inicio: 300, fin: 499, sector: 'Sector 3 ABG' }, { inicio: 503, fin: 670, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Alonso de Ojeda', rango: [{ inicio: 4650, fin: 4699, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Alvarez de Toledo', rango: [{ inicio: 403, fin: 661, sector: 'Sector 2 ABG' }, { inicio: 300, fin: 399, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Anakena', rango: [{ inicio: 3312, fin: 3424, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Antartica', rango: [{ inicio: 3280, fin: 3461, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Arlequin', rango: [{ inicio: 4215, fin: 4281, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Artes y Oficios', rango: [{ inicio: 300, fin: 348, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Avenida las Industrias', rango: [{ inicio: 4119, fin: 4699, sector: 'Sector 1 ABG' }, { inicio: 3263, fin: 4099, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Aysen', rango: [{ inicio: 3312, fin: 3391, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Benozzo Gozzolli', rango: [{ inicio: 4113, fin: 4699, sector: 'Sector 1 ABG' }] },
+            { nombre: 'BENOZZO GOZZOLLI', rango: [{ inicio: 4220, fin: 5552, sector: 'Sector 2 STA' }, { inicio: 5500, fin: 6060, sector: 'Sector 2 STA' }, { inicio: 5623, fin: 6027, sector: 'Sector 2 STA' }, { inicio: 4720, fin: 5441, sector: 'Sector 3 STA' }] },
+            
+            { nombre: 'Cabildo', rango: [{ inicio: 4339, fin: 4598, sector: 'Sector 1 ABG' }, { inicio: 3493, fin: 4297, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Carlos Fau', rango: [{ inicio: 3309, fin: 3753, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Colombina', rango: [{ inicio: 4210, fin: 4297, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Comandante Riesle', rango: [{ inicio: 367, fin: 499, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Comercio', rango: [{ inicio: 300, fin: 399, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Constancia', rango: [{ inicio: 300, fin: 399, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Copacabana', rango: [{ inicio: 404, fin: 543, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Cristobal de Erazo', rango: [{ inicio: 4210, fin: 4699, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Diego de Meza', rango: [{ inicio: 4651, fin: 4699, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Drake', rango: [{ inicio: 300, fin: 398, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Embajador Noel', rango: [{ inicio: 401, fin: 550, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Esfuerzo', rango: [{ inicio: 300, fin: 399, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Francisco de Zarate', rango: [{ inicio: 3261, fin: 3430, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Gaspar de Espinoza', rango: [{ inicio: 4319, fin: 4390, sector: 'Sector 1 ABG' }, { inicio: 4110, fin: 4295, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Gaspar de Soto', rango: [{ inicio: 399, fin: 498, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Hangaroa', rango: [{ inicio: 657, fin: 661, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Ingeniero Budge', rango: [{ inicio: 201, fin: 499, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Jorge Canning', rango: [{ inicio: 471, fin: 688, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Juan Griego', rango: [{ inicio: 4301, fin: 4684, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Juan Rivadeneira', rango: [{ inicio: 4120, fin: 4699, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Juegos Infantiles', rango: [{ inicio: 3282, fin: 3429, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Karl Brunner', rango: [{ inicio: 3253, fin: 3430, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Las Acacias', rango: [{ inicio: 430, fin: 433, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Las Camelias', rango: [{ inicio: 4278, fin: 4288, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Leoncavallo', rango: [{ inicio: 0, fin: 519, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Los Clarines', rango: [{ inicio: 404, fin: 412, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Los Copihues', rango: [{ inicio: 3390, fin: 4091, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Los Lirios', rango: [{ inicio: 402, fin: 413, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Los Nardos', rango: [{ inicio: 430, fin: 433, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Maestranza', rango: [{ inicio: 3306, fin: 3737, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Magallanes', rango: [{ inicio: 3310, fin: 3755, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Manutara', rango: [{ inicio: 3314, fin: 3424, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Maria Elena', rango: [{ inicio: 3311, fin: 3371, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Mario Lanza', rango: [{ inicio: 565, fin: 570, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Martin Henriquez', rango: [{ inicio: 4123, fin: 4695, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Matta Vial', rango: [{ inicio: 501, fin: 682, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Mejillones', rango: [{ inicio: 3312, fin: 3351, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Michelson', rango: [{ inicio: 460, fin: 473, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Miguel Angel', rango: [{ inicio: 4120, fin: 4281, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Nuremberg', rango: [{ inicio: 451, fin: 498, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pablo Burchard', rango: [{ inicio: 404, fin: 453, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pasaje 16 de Febrero', rango: [{ inicio: 4343, fin: 4350, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pasaje Julio Donoso', rango: [{ inicio: 4200, fin: 4297, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Pasaje 26 de Julio', rango: [{ inicio: 4344, fin: 4349, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pasaje las Industrias', rango: [{ inicio: 300, fin: 399, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Pasaje 1ro de Septiembr', rango: [{ inicio: 300, fin: 398, sector: 'Sector 1 ABG' }, { inicio: 301, fin: 391, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Pasaje Lamifun', rango: [{ inicio: 4300, fin: 4351, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pasaje Sayus II', rango: [{ inicio: 1, fin: 12, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pedro Mira', rango: [{ inicio: 315, fin: 499, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pintor Abarca', rango: [{ inicio: 399, fin: 468, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pintor Ortiz de Zarate', rango: [{ inicio: 400, fin: 446, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Pintor Smith', rango: [{ inicio: 398, fin: 432, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Plaza Julio Donoso', rango: [{ inicio: 526, fin: 540, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Prensa', rango: [{ inicio: 300, fin: 395, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Progreso', rango: [{ inicio: 300, fin: 399, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Rapa Nui', rango: [{ inicio: 3311, fin: 3421, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Sanchez Colchero', rango: [{ inicio: 3287, fin: 3430, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Sanchez Pinzon', rango: [{ inicio: 3250, fin: 3330, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Santa Catalina', rango: [{ inicio: 3265, fin: 3488, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Santa Elisa', rango: [{ inicio: 3260, fin: 3493, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Santa Ester', rango: [{ inicio: 417, fin: 480, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Schwager', rango: [{ inicio: 302, fin: 363, sector: 'Sector 3 ABG' }] },
+            { nombre: 'Springhill', rango: [{ inicio: 3311, fin: 3386, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Teniente Soto', rango: [{ inicio: 300, fin: 396, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Toromiro', rango: [{ inicio: 3212, fin: 3326, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Ureta Cox', rango: [{ inicio: 206, fin: 499, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Vasco Nuñez de Balboa', rango: [{ inicio: 4650, fin: 4699, sector: 'Sector 1 ABG' }] },
+            { nombre: 'Venecia', rango: [{ inicio: 3281, fin: 3446, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Zenon Torrealba', rango: [{ inicio: 502, fin: 590, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Santa Rosa', rango: [{ inicio: 4220, fin: 4698, sector: 'Sector 1 ABG' }, { inicio: 2760, fin: 4188, sector: 'Sector 2 ABG' }] },
+            {
+                nombre: 'San Gregorio', rango: [{ inicio: 4304, fin: 4399, sector: 'Sector 1 ABG' }, { inicio: 3311, fin: 3499, sector: 'Sector 2 ABG', lado: 'impar' },
+                { inicio: 3788, fin: 4278, sector: 'Sector 2 ABG' }, { inicio: 3310, fin: 3786, sector: 'Sector 3 ABG', lado: 'par' }]
+            },
+            {
+                nombre: 'Leal', rango: [{ inicio: 501, fin: 595, sector: 'Sector 2 ABG' }, { inicio: 400, fin: 498, sector: 'Sector 2 ABG', lado: 'par' },
+                { inicio: 405, fin: 499, sector: 'Sector 3 ABG', lado: 'impar' }]
+            },
+            {
+                nombre: 'Avenida Salvador Allende', rango: [{ inicio: 201, fin: 398, sector: 'Sector 1 ABG' }, { inicio: 400, fin: 564, sector: 'Sector 1 ABG', lado: 'par' },
+                { inicio: 391, fin: 575, sector: 'Sector 2 ABG', lado: 'impar' }]
+            },
+            {
+                nombre: 'Mateo de Toro y Zambrano', rango: [{ inicio: 3000, fin: 3799, sector: 'Sector 3 ABG' }, { inicio: 3800, fin: 4086, sector: 'Sector 3 ABG', lado: 'par' },
+                { inicio: 3831, fin: 4185, sector: 'Sector 2 ABG', lado: 'impar' }]
+            },
+            { nombre: 'Mataveri', rango: [{ inicio: 0, fin: 5000, sector: 'Sector 2 ABG' }] },
+            { nombre: 'Rodillo', rango: [{ inicio: 0, fin: 5000, sector: 'Sector 2 ABG' }] },
+
+
+            /*STA TERESA*/
+
+            { nombre: 'Abedul', rango: [{ inicio: 5305, fin: 5397, sector: 'Sector 4 STA' }] },
+            { nombre: 'Adriano', rango: [{ inicio: 313, fin: 314, sector: 'Sector 2 STA' }] },
+            { nombre: 'Alejandro Flores', rango: [{ inicio: 291, fin: 304, sector: 'Sector 4 STA' }] },
+            { nombre: 'Alonso de Ojeda', rango: [{ inicio: 4712, fin: 4867, sector: 'Sector 3 STA' }, { inicio: 4904, fin: 5141, sector: 'Sector 3 STA' }] },
+            { nombre: 'Alvaro Puga', rango: [{ inicio: 4745, fin: 4845, sector: 'Sector 4 STA' }] },
+            { nombre: 'Ancoa', rango: [{ inicio: 4945, fin: 5328, sector: 'Sector 4 STA' }] },
+            { nombre: 'Anibal', rango: [{ inicio: 5964, fin: 5979, sector: 'Sector 5 STA' }] },
+            { nombre: 'Antonio de Erazo', rango: [{ inicio: 371, fin: 380, sector: 'Sector 2 STA' }] },
+            { nombre: 'Aqelarre', rango: [{ inicio: 3, fin: 54, sector: 'Sector 4 STA' }] },
+            { nombre: 'Aqelarre Norte', rango: [{ inicio: 5306, fin: 5397, sector: 'Sector 4 STA' }] },
+            { nombre: 'Aragon', rango: [{ inicio: 367, fin: 426, sector: 'Sector 5 STA' }] },
+            { nombre: 'Aranjuez', rango: [{ inicio: 372, fin: 381, sector: 'Sector 5 STA' }] },
+            { nombre: 'Armando Mook', rango: [{ inicio: 294, fin: 396, sector: 'Sector 4 STA' }] },
+            { nombre: 'Arturo Pardo', rango: [{ inicio: 437, fin: 455, sector: 'Sector 5 STA' }] },
+            { nombre: 'Berlioz', rango: [{ inicio: 5510, fin: 5979, sector: 'Sector 5 STA' }, { inicio: 5983, fin: 6285, sector: 'Sector 5 STA' }, { inicio: 6219, fin: 6399, sector: 'Sector 5 STA' }] },
+            { nombre: 'BERLIOZ (NUEVA)', rango: [{ inicio: 5331, fin: 5461, sector: 'Sector 3 STA' }] },
+            { nombre: 'Bermudas', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Boecio', rango: [{ inicio: 336, fin: 346, sector: 'Sector 5 STA' }] },
+            { nombre: 'Boticelli', rango: [{ inicio: 5319, fin: 5488, sector: 'Sector 3 STA' }] },
+            { nombre: 'Boyecura', rango: [{ inicio: 399, fin: 416, sector: 'Sector 3 STA' }] },
+            { nombre: 'Brasilia', rango: [{ inicio: 5613, fin: 6259, sector: 'Sector 1 STA' }, { inicio: 5658, fin: 6262, sector: 'Sector 1 STA' }, { inicio: 6270, fin: 6297, sector: 'Sector 1 STA' }] },
+            { nombre: 'Bucalemu', rango: [{ inicio: 399, fin: 412, sector: 'Sector 3 STA' }] },
+            { nombre: 'Butamanga', rango: [{ inicio: 5820, fin: 5879, sector: 'Sector 1 STA' }] },
+            { nombre: 'Cahuacahue', rango: [{ inicio: 227, fin: 243, sector: 'Sector 1 STA' }] },
+            { nombre: 'Calbuco', rango: [{ inicio: 6382, fin: 6391, sector: 'Sector 1 STA' }] },
+            { nombre: 'Calcao', rango: [{ inicio: 5819, fin: 5869, sector: 'Sector 1 STA' }] },
+            { nombre: 'Calipso', rango: [{ inicio: 6220, fin: 6385, sector: 'Sector 1 STA' }] },
+            { nombre: 'Camarones', rango: [{ inicio: 200, fin: 248, sector: 'Sector 4 STA' }] },
+            { nombre: 'Camiña', rango: [{ inicio: 5329, fin: 5490, sector: 'Sector 4 STA' }] },
+            { nombre: 'Campolindo', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Canada', rango: [{ inicio: 5149, fin: 5379, sector: 'Sector 4 STA' }, { inicio: 5009, fin: 5640, sector: 'Sector 4 STA' }] },
+            { nombre: 'Cantares de Chile', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Capitan Prat', rango: [{ inicio: 174, fin: 204, sector: 'Sector 4 STA' }] },
+            { nombre: 'Carahue', rango: [{ inicio: 6120, fin: 6141, sector: 'Sector 1 STA' }] },
+            { nombre: 'Cariquima', rango: [{ inicio: 200, fin: 229, sector: 'Sector 4 STA' }] },
+            { nombre: 'Carlo Magno', rango: [{ inicio: 5682, fin: 5998, sector: 'Sector 2 STA' }] },
+            { nombre: 'Carlos Perez de Arce', rango: [{ inicio: 259, fin: 279, sector: 'Sector 4 STA' }] },
+            { nombre: 'Carlos Pezoa Veliz', rango: [{ inicio: 5600, fin: 5800, sector: 'Sector 5 STA' }] },
+            { nombre: 'Carmela Carvajal', rango: [{ inicio: 175, fin: 210, sector: 'Sector 4 STA' }] },
+            { nombre: 'Carmen Mena', rango: [{ inicio: 135, fin: 224, sector: 'Sector 1 STA' }, { inicio: 219, fin: 259, sector: 'Sector 1 STA' }, { inicio: 277, fin: 295, sector: 'Sector 1 STA' }, { inicio: 307, fin: 351, sector: 'Sector 2 STA' }] },
+            { nombre: 'Castilla', rango: [{ inicio: 364, fin: 433, sector: 'Sector 5 STA' }] },
+            { nombre: 'Catiao', rango: [{ inicio: 227, fin: 242, sector: 'Sector 1 STA' }] },
+            { nombre: 'Catruman', rango: [{ inicio: 276, fin: 286, sector: 'Sector 1 STA' }] },
+            { nombre: 'Caucura', rango: [{ inicio: 6321, fin: 6399, sector: 'Sector 1 STA' }] },
+            { nombre: 'CECILIA(PSJE)', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Cepal', rango: [{ inicio: 116, fin: 128, sector: 'Sector 1 STA' }] },
+            { nombre: 'Ceylan', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Chacalluta', rango: [{ inicio: 201, fin: 231, sector: 'Sector 4 STA' }] },
+            { nombre: 'Chaiten', rango: [{ inicio: 5934, fin: 5980, sector: 'Sector 1 STA' }] },
+            { nombre: 'Chamoco', rango: [{ inicio: 227, fin: 243, sector: 'Sector 1 STA' }] },
+            { nombre: 'Chana', rango: [{ inicio: 5919, fin: 5949, sector: 'Sector 1 STA' }] },
+            { nombre: 'Charles Dickens', rango: [{ inicio: 200, fin: 202, sector: 'Sector 1 STA' }] },
+            { nombre: 'Chiloe', rango: [{ inicio: 248, fin: 270, sector: 'Sector 1 STA' }] },
+            { nombre: 'Chonchi', rango: [{ inicio: 242, fin: 259, sector: 'Sector 1 STA' }] },
+            { nombre: 'Cobija', rango: [{ inicio: 5219, fin: 5279, sector: 'Sector 4 STA' }] },
+            { nombre: 'Cochamo', rango: [{ inicio: 228, fin: 247, sector: 'Sector 1 STA' }] },
+            { nombre: 'Codpa', rango: [{ inicio: 5019, fin: 5080, sector: 'Sector 4 STA' }] },
+            { nombre: 'Colchane', rango: [{ inicio: 201, fin: 233, sector: 'Sector 4 STA' }] },
+            { nombre: 'Comité de Educación', rango: [{ inicio: 424, fin: 444, sector: 'Sector 3 STA' }] },
+            { nombre: 'Coñimo', rango: [{ inicio: 272, fin: 296, sector: 'Sector 1 STA' }, { inicio: 277, fin: 297, sector: 'Sector 1 STA' }] },
+            { nombre: 'Copaquiri', rango: [{ inicio: 250, fin: 265, sector: 'Sector 4 STA' }] },
+            { nombre: 'Copernico', rango: [{ inicio: 4718, fin: 4898, sector: 'Sector 3 STA' }] },
+            { nombre: 'Coral', rango: [{ inicio: 5747, fin: 5758, sector: 'Sector 5 STA' }] },
+            { nombre: 'Craso', rango: [{ inicio: 313, fin: 318, sector: 'Sector 2 STA' }] },
+            { nombre: 'Cristóbal de Erazo', rango: [{ inicio: 4741, fin: 4858, sector: 'Sector 3 STA' }, { inicio: 4907, fin: 5137, sector: 'Sector 3 STA' }] },
+            { nombre: 'Cunco', rango: [{ inicio: 5970, fin: 5979, sector: 'Sector 2 STA' }, { inicio: 5970, fin: 5979, sector: 'Sector 5 STA' }] },
+            { nombre: 'Curarrehue', rango: [{ inicio: 5920, fin: 6041, sector: 'Sector 1 STA' }] },
+            { nombre: 'Cuya', rango: [{ inicio: 201, fin: 228, sector: 'Sector 4 STA' }] },
+            { nombre: 'Dagoberto Hammaskold', rango: [{ inicio: 6258, fin: 6280, sector: 'Sector 1 STA' }] },
+            { nombre: 'Dalcahue', rango: [{ inicio: 261, fin: 290, sector: 'Sector 1 STA' }] },
+            { nombre: 'Dallico', rango: [{ inicio: 294, fin: 296, sector: 'Sector 1 STA' }] },
+            { nombre: 'Daniel de la Vega', rango: [{ inicio: 388, fin: 400, sector: 'Sector 5 STA' }] },
+            { nombre: 'Daniel Defoe', rango: [{ inicio: 201, fin: 210, sector: 'Sector 4 STA' }] },
+            { nombre: 'Delfin Galaz', rango: [{ inicio: 5127, fin: 5343, sector: 'Sector 4 STA' }] },
+            { nombre: 'Departamental', rango: [{ inicio: 6, fin: 92, sector: 'Sector 1 STA' }, { inicio: 100, fin: 220, sector: 'Sector 1 STA' }, { inicio: 21, fin: 199, sector: 'Sector 4 STA' }, { inicio: 209, fin: 231, sector: 'Sector 4 STA' }, { inicio: 295, fin: 307, sector: 'Sector 4 STA' }, { inicio: 309, fin: 337, sector: 'Sector 2 STA' }, { inicio: 347, fin: 385, sector: 'Sector 3 STA' }, { inicio: 395, fin: 469, sector: 'Sector 3 STA' }, { inicio: 350, fin: 488, sector: 'Sector º' }] },
+            { nombre: 'Diego de Meza', rango: [{ inicio: 4742, fin: 4858, sector: 'Sector 3 STA' }, { inicio: 4904, fin: 5441, sector: 'Sector 3 STA' }] },
+            { nombre: 'Doca', rango: [{ inicio: 249, fin: 258, sector: 'Sector 1 STA' }] },
+            { nombre: 'Dolores', rango: [{ inicio: 5121, fin: 5194, sector: 'Sector 4 STA' }] },
+            { nombre: 'Domenica de Biase', rango: [{ inicio: 422, fin: 445, sector: 'Sector 3 STA' }] },
+            { nombre: 'Duque del Alba', rango: [{ inicio: 351, fin: 385, sector: 'Sector 2 STA' }] },
+            { nombre: 'Edmundo de Amicis', rango: [{ inicio: 195, fin: 201, sector: 'Sector 4 STA' }, { inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }, { inicio: 6016, fin: 6096, sector: 'Sector 5 STA' }] },
+            { nombre: 'Eduardo Barrios', rango: [{ inicio: 5611, fin: 5669, sector: 'Sector 5 STA' }] },
+            { nombre: 'El Chincol', rango: [{ inicio: 5661, fin: 5575, sector: 'Sector 4 STA' }] },
+            { nombre: 'El Cortijo', rango: [{ inicio: 437, fin: 464, sector: 'Sector 5 STA' }] },
+            { nombre: 'El Faisan', rango: [{ inicio: 24, fin: 42, sector: 'Sector 4 STA' }] },
+            { nombre: 'El Pelicano', rango: [{ inicio: 17, fin: 82, sector: 'Sector 4 STA' }] },
+            { nombre: 'El Picaflor', rango: [{ inicio: 5543, fin: 5591, sector: 'Sector 4 STA' }] },
+            { nombre: 'El Prado', rango: [{ inicio: 430, fin: 497, sector: 'Sector 5 STA' }] },
+            { nombre: 'El Tintoreto', rango: [{ inicio: 4719, fin: 4857, sector: 'Sector 3 STA' }] },
+            { nombre: 'Emilio Salgari', rango: [{ inicio: 5359, fin: 5573, sector: 'Sector 4 STA' }] },
+            { nombre: 'Enrique Borras', rango: [{ inicio: 4719, fin: 4894, sector: 'Sector 3 STA' }, { inicio: 4915, fin: 4942, sector: 'Sector 3 STA' }, { inicio: 5138, fin: 5265, sector: 'Sector 3 STA' }] },
+            { nombre: 'Entrelagos', rango: [{ inicio: 190, fin: 206, sector: 'Sector 1 STA' }] },
+            { nombre: 'Escipion', rango: [{ inicio: 5637, fin: 5920, sector: 'Sector 2 STA' }] },
+            { nombre: 'España', rango: [{ inicio: 6203, fin: 6298, sector: 'Sector 1 STA' }] },
+            { nombre: 'Esparta', rango: [{ inicio: 308, fin: 344, sector: 'Sector 2 STA' }] },
+            { nombre: 'Estadio', rango: [{ inicio: 5771, fin: 6285, sector: 'Sector 1 STA' }] },
+            { nombre: 'Eusebio Ibar', rango: [{ inicio: 5562, fin: 5598, sector: 'Sector 4 STA' }] },
+            { nombre: 'Eusebio Lillo', rango: [{ inicio: 388, fin: 399, sector: 'Sector 5 STA' }] },
+            { nombre: 'Fao', rango: [{ inicio: 110, fin: 117, sector: 'Sector 1 STA' }] },
+            { nombre: 'Filippo', rango: [{ inicio: 5560, fin: 5640, sector: 'Sector 2 STA' }] },
+            { nombre: 'Filoarmonico', rango: [{ inicio: 5739, fin: 5756, sector: 'Sector 5 STA' }] },
+            { nombre: 'Flamiño', rango: [{ inicio: 318, fin: 338, sector: 'Sector 2 STA' }] },
+            { nombre: 'Francia', rango: [{ inicio: 5891, fin: 6298, sector: 'Sector 1 STA' }] },
+            { nombre: 'Francisco Castañeda', rango: [{ inicio: 4742, fin: 4858, sector: 'Sector 3 STA' }, { inicio: 4914, fin: 5476, sector: 'Sector 3 STA' }] },
+            { nombre: 'Francisco Toledo', rango: [{ inicio: 5542, fin: 5750, sector: 'Sector 2 STA' }, { inicio: 4724, fin: 4897, sector: 'Sector 3 STA' }, { inicio: 4916, fin: 5091, sector: 'Sector 3 STA' }, { inicio: 5132, fin: 5521, sector: 'Sector 3 STA' }] },
+            { nombre: 'Francisco Villa Espesa', rango: [{ inicio: 376, fin: 442, sector: 'Sector 3 STA' }] },
+            { nombre: 'Frutillar', rango: [{ inicio: 191, fin: 257, sector: 'Sector 1 STA' }] },
+            { nombre: 'Frutono', rango: [{ inicio: 177, fin: 198, sector: 'Sector 1 STA' }] },
+            { nombre: 'Galileo', rango: [{ inicio: 4877, fin: 4897, sector: 'Sector 3 STA' }] },
+            { nombre: 'Ganges', rango: [{ inicio: 6020, fin: 6098, sector: 'Sector 5 STA' }] },
+            { nombre: 'Gaspar de Espinoza', rango: [{ inicio: 4940, fin: 5475, sector: 'Sector 3 STA' }] },
+            { nombre: 'Gaspar DE ESPINOZA(PSJE)-', rango: [{ inicio: 4742, fin: 4858, sector: 'Sector 3 STA' }] },
+            { nombre: 'Gengis Khan', rango: [{ inicio: 5943, fin: 5992, sector: 'Sector 5 STA' }] },
+            { nombre: 'Gerona', rango: [{ inicio: 49, fin: 60, sector: 'Sector 1 STA' }] },
+            { nombre: 'Girasol', rango: [{ inicio: 5398, fin: 6201, sector: 'Sector 5 STA' }] },
+            { nombre: 'Graciano', rango: [{ inicio: 305, fin: 348, sector: 'Sector 2 STA' }] },
+            { nombre: 'Gustavo Campaña', rango: [{ inicio: 4856, fin: 5380, sector: 'Sector 4 STA' }, { inicio: 5025, fin: 5491, sector: 'Sector 4 STA' }] },
+            { nombre: 'HAYDN', rango: [{ inicio: 5613, fin: 6297, sector: 'Sector 1 STA' }, { inicio: 5980, fin: 6298, sector: 'Sector 1 STA' }, { inicio: 4566, fin: 4663, sector: 'Sector 4 STA' }, { inicio: 4998, fin: 5594, sector: 'Sector 4 STA' }] },
+            { nombre: 'Hector Barrueto', rango: [{ inicio: 5281, fin: 5381, sector: 'Sector 4 STA' }] },
+            { nombre: 'Herman Hesse', rango: [{ inicio: 200, fin: 202, sector: 'Sector 4 STA' }] },
+            { nombre: 'Himalaya', rango: [{ inicio: 5944, fin: 5992, sector: 'Sector 5 STA' }] },
+            { nombre: 'Holbein', rango: [{ inicio: 4719, fin: 4891, sector: 'Sector 3 STA' }] },
+            { nombre: 'Horacio', rango: [{ inicio: 319, fin: 322, sector: 'Sector 2 STA' }] },
+            { nombre: 'Hornopiren', rango: [{ inicio: 6382, fin: 6391, sector: 'Sector 1 STA' }] },
+            { nombre: 'Huara', rango: [{ inicio: 5219, fin: 5381, sector: 'Sector 4 STA' }] },
+            { nombre: 'Huincha', rango: [{ inicio: 6107, fin: 6122, sector: 'Sector 1 STA' }] },
+            { nombre: 'Huite', rango: [{ inicio: 5763, fin: 5781, sector: 'Sector 1 STA' }] },
+            { nombre: 'Iloca', rango: [{ inicio: 399, fin: 411, sector: 'Sector 3 STA' }] },
+            { nombre: 'Imperial', rango: [{ inicio: 6120, fin: 6141, sector: 'Sector 1 STA' }] },
+            { nombre: 'ING. BUDGE', rango: [{ inicio: 403, fin: 419, sector: 'Sector 3 STA' }] },
+            { nombre: 'ING.BUDGE', rango: [{ inicio: 100, fin: 284, sector: 'Sector 4 STA' }] },
+            { nombre: 'INGENIERO BUDGE', rango: [{ inicio: 200, fin: 400, sector: 'Sector 2 STA' }] },
+            { nombre: 'Ingeniero Maria Diaz', rango: [{ inicio: 312, fin: 346, sector: 'Sector 2 STA' }, { inicio: 351, fin: 380, sector: 'Sector 2 STA' }] },
+            { nombre: 'Isla Bahamas', rango: [{ inicio: 6007, fin: 6048, sector: 'Sector 5 STA' }] },
+            { nombre: 'Isla Canarias', rango: [{ inicio: 462, fin: 474, sector: 'Sector 5 STA' }] },
+            { nombre: 'Italia', rango: [{ inicio: 179, fin: 189, sector: 'Sector 1 STA' }] },
+            { nombre: 'Jamaica', rango: [{ inicio: 310, fin: 330, sector: 'Sector 1 STA' }] },
+            { nombre: 'Jorge Quevedo', rango: [{ inicio: 291, fin: 306, sector: 'Sector 4 STA' }] },
+            { nombre: 'Jose Garibaldi', rango: [{ inicio: 4742, fin: 4858, sector: 'Sector 3 STA' }, { inicio: 4741, fin: 4857, sector: 'Sector 3 STA' }] },
+            { nombre: 'Jose Manuel Perez', rango: [{ inicio: 60, fin: 91, sector: 'Sector 4 STA' }] },
+            { nombre: 'José Toribio Medina', rango: [{ inicio: 386, fin: 399, sector: 'Sector 5 STA' }] },
+            { nombre: 'Juan Aravena', rango: [{ inicio: 384, fin: 480, sector: 'Sector 5 STA' }, { inicio: 389, fin: 497, sector: 'Sector 5 STA' }] },
+            { nombre: 'Juan Griego', rango: [{ inicio: 4723, fin: 4884, sector: 'Sector 3 STA' }, { inicio: 5120, fin: 5340, sector: 'Sector 3 STA' }, { inicio: 4916, fin: 5060, sector: 'Sector 3 STA' }, { inicio: 5145, fin: 5475, sector: 'Sector 3 STA' }] },
+            { nombre: 'Juan Planas', rango: [{ inicio: 5779, fin: 5788, sector: 'Sector 5 STA' }] },
+            { nombre: 'JUAN RIVADENEIRA', rango: [{ inicio: 4915, fin: 5045, sector: 'Sector 3 STA' }, { inicio: 4924, fin: 5116, sector: 'Sector 3 STA' }] },
+            { nombre: 'Juanita Fernandez', rango: [{ inicio: 155, fin: 200, sector: 'Sector 4 STA' }] },
+            { nombre: 'Julio Verne', rango: [{ inicio: 194, fin: 202, sector: 'Sector 4 STA' }] },
+            { nombre: 'La Castrina', rango: [{ inicio: 267, fin: 327, sector: 'Sector 2 STA' }, { inicio: 276, fin: 484, sector: 'Sector 5 STA' }] },
+            { nombre: 'La Codorniz', rango: [{ inicio: 5535, fin: 5580, sector: 'Sector 4 STA' }] },
+            { nombre: 'La Habana', rango: [{ inicio: 350, fin: 383, sector: 'Sector 2 STA' }] },
+            { nombre: 'la Tirana', rango: [{ inicio: 263, fin: 272, sector: 'Sector 4 STA' }] },
+            { nombre: 'La Tranquera', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Lacao', rango: [{ inicio: 6040, fin: 6091, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lago Caburga', rango: [{ inicio: 5830, fin: 5840, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lago Calafquen', rango: [{ inicio: 186, fin: 192, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lago Llanquihue', rango: [{ inicio: 126, fin: 182, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lago Puyehue', rango: [{ inicio: 5931, fin: 5981, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lago Rupanco', rango: [{ inicio: 127, fin: 198, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lago Villarica', rango: [{ inicio: 5830, fin: 5840, sector: 'Sector 1 STA' }] },
+            { nombre: 'Las Industrias', rango: [{ inicio: 5610, fin: 5668, sector: 'Sector 1 STA' }, { inicio: 5670, fin: 5764, sector: 'Sector 1 STA' }, { inicio: 5820, fin: 6354, sector: 'Sector 1 STA' }, { inicio: 6243, fin: 6389, sector: 'Sector ,' }, { inicio: 4735, fin: 4795, sector: 'Sector 2 STA' }, { inicio: 5615, fin: 6209, sector: 'Sector 2 STA' }, { inicio: 4720, fin: 5020, sector: 'Sector 4 STA' }, { inicio: 5479, fin: 5491, sector: 'Sector 4 STA' }] },
+            { nombre: 'Las Marquezas', rango: [{ inicio: 6233, fin: 6370, sector: 'Sector 1 STA' }] },
+            { nombre: 'Las Notas', rango: [{ inicio: 404, fin: 424, sector: 'Sector 5 STA' }] },
+            { nombre: 'Las Vega', rango: [{ inicio: 5721, fin: 5836, sector: 'Sector 1 STA' }] },
+            { nombre: 'Las Villas', rango: [{ inicio: 5720, fin: 5791, sector: 'Sector 1 STA' }] },
+            { nombre: 'Latinoamerica', rango: [{ inicio: 6210, fin: 6390, sector: 'Sector 1 STA' }, { inicio: 6211, fin: 6287, sector: 'Sector 5 STA' }] },
+            { nombre: 'LATINOAMERICA HASTA SANTA ROSA', rango: [{ inicio: 329, fin: 467, sector: 'Sector 5 STA' }] },
+            { nombre: 'Lechuaga', rango: [{ inicio: 5631, fin: 5726, sector: 'Sector 1 STA' }] },
+            { nombre: 'Linlin', rango: [{ inicio: 231, fin: 244, sector: 'Sector 1 STA' }, { inicio: 210, fin: 224, sector: 'Sector 4 STA' }] },
+            { nombre: 'Llanco', rango: [{ inicio: 6030, fin: 3040, sector: 'Sector 1 STA' }] },
+            { nombre: 'Llauco', rango: [{ inicio: 238, fin: 256, sector: 'Sector 1 STA' }] },
+            { nombre: 'Llave de Sol', rango: [{ inicio: 5749, fin: 5766, sector: 'Sector 5 STA' }] },
+            { nombre: 'Llico', rango: [{ inicio: 305, fin: 342, sector: 'Sector 2 STA' }, { inicio: 395, fin: 480, sector: 'Sector 3 STA' }, { inicio: 4, fin: 202, sector: 'Sector 4 STA' }, { inicio: 201, fin: 272, sector: 'Sector 4 STA' }, { inicio: 293, fin: 304, sector: 'Sector 4 STA' }] },
+            { nombre: 'Lo Ovalle', rango: [{ inicio: 55, fin: 229, sector: 'Sector 1 STA' }, { inicio: 231, fin: 233, sector: 'Sector 5 STA' }, { inicio: 235, fin: 487, sector: 'Sector 5 STA' }] },
+            { nombre: 'Loanca', rango: [{ inicio: 4931, fin: 5238, sector: 'Sector 4 STA' }] },
+            { nombre: 'Logroño', rango: [{ inicio: 6258, fin: 6278, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lolol', rango: [{ inicio: 5014, fin: 5080, sector: 'Sector 4 STA' }] },
+            { nombre: 'Loncoche', rango: [{ inicio: 6120, fin: 6141, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lonquen', rango: [{ inicio: 214, fin: 224, sector: 'Sector 4 STA' }] },
+            { nombre: 'Los Maitenes', rango: [{ inicio: 435, fin: 495, sector: 'Sector 5 STA' }] },
+            { nombre: 'Los Cerezos', rango: [{ inicio: 4829, fin: 4919, sector: 'Sector 4 STA' }] },
+            { nombre: 'Luis Alvarado', rango: [{ inicio: 5137, fin: 5350, sector: 'Sector 4 STA' }] },
+            { nombre: 'Luis Emilio Recabarren', rango: [{ inicio: 5410, fin: 5460, sector: 'Sector 4 STA' }] },
+            { nombre: 'Lumaco', rango: [{ inicio: 47, fin: 77, sector: 'Sector 1 STA' }] },
+            { nombre: 'Lyon', rango: [{ inicio: 135, fin: 150, sector: 'Sector 1 STA' }] },
+            { nombre: 'Magnolia', rango: [{ inicio: 5305, fin: 5394, sector: 'Sector 4 STA' }] },
+            { nombre: 'Mahatma Gandhi', rango: [{ inicio: 5945, fin: 5968, sector: 'Sector 5 STA' }] },
+            { nombre: 'Maihue', rango: [{ inicio: 5022, fin: 5640, sector: 'Sector 4 STA' }] },
+            { nombre: 'Mallarauco', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Manuel Contreras', rango: [{ inicio: 162, fin: 182, sector: 'Sector 4 STA' }] },
+            { nombre: 'Manuel Magallanes', rango: [{ inicio: 382, fin: 384, sector: 'Sector 5 STA' }] },
+            { nombre: 'Manuel Plaza', rango: [{ inicio: 183, fin: 196, sector: 'Sector 4 STA' }] },
+            { nombre: 'Marcela Paz', rango: [{ inicio: 199, fin: 201, sector: 'Sector 4 STA' }] },
+            { nombre: 'Mariano la Torre', rango: [{ inicio: 397, fin: 399, sector: 'Sector 5 STA' }] },
+            { nombre: 'Mario Miño', rango: [{ inicio: 5841, fin: 5560, sector: 'Sector 4 STA' }] },
+            { nombre: 'Mark Twain', rango: [{ inicio: 5573, fin: 5597, sector: 'Sector 4 STA' }] },
+            { nombre: 'Marta Eugussola', rango: [{ inicio: 189, fin: 191, sector: 'Sector 4 STA' }] },
+            { nombre: 'MARTIN HENRIQUEZ', rango: [{ inicio: 4917, fin: 5044, sector: 'Sector 3 STA' }, { inicio: 5122, fin: 5293, sector: 'Sector 3 STA' }] },
+            { nombre: 'Matilla', rango: [{ inicio: 203, fin: 229, sector: 'Sector 4 STA' }] },
+            { nombre: 'Matri', rango: [{ inicio: 277, fin: 295, sector: 'Sector 1 STA' }] },
+            { nombre: 'Matte Hurtado', rango: [{ inicio: 5210, fin: 5580, sector: 'Sector 4 STA' }] },
+            { nombre: 'Melinka', rango: [{ inicio: 236, fin: 249, sector: 'Sector 1 STA' }] },
+            { nombre: 'Melipeuco', rango: [{ inicio: 6015, fin: 6036, sector: 'Sector 1 STA' }] },
+            { nombre: 'Metal Rojo', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Millacura', rango: [{ inicio: 6016, fin: 6052, sector: 'Sector 1 STA' }] },
+            { nombre: 'Minueto', rango: [{ inicio: 402, fin: 404, sector: 'Sector 5 STA' }] },
+            { nombre: 'Montpellier', rango: [{ inicio: 135, fin: 150, sector: 'Sector 1 STA' }] },
+            { nombre: 'Mutico', rango: [{ inicio: 6066, fin: 6398, sector: 'Sector 1 STA' }] },
+            { nombre: 'Naciones Unidas', rango: [{ inicio: 49, fin: 189, sector: 'Sector 1 STA' }] },
+            { nombre: 'Navarino', rango: [{ inicio: 334, fin: 356, sector: 'Sector 5 STA' }] },
+            { nombre: 'Nicanor de la Sota', rango: [{ inicio: 5019, fin: 5460, sector: 'Sector 4 STA' }] },
+            { nombre: 'Nicolas Maquiavello', rango: [{ inicio: 6013, fin: 6016, sector: 'Sector 2 STA' }] },
+            { nombre: 'Nueva Berlioz', rango: [{ inicio: 5346, fin: 5430, sector: 'Sector 3 STA' }] },
+            { nombre: 'Ollague', rango: [{ inicio: 200, fin: 246, sector: 'Sector 4 STA' }] },
+            { nombre: 'Oscar Castro', rango: [{ inicio: 316, fin: 354, sector: 'Sector 5 STA' }, { inicio: 389, fin: 397, sector: 'Sector 5 STA' }] },
+            { nombre: 'Osvaldina Chaparro', rango: [{ inicio: 188, fin: 195, sector: 'Sector 4 STA' }] },
+            { nombre: 'Palavicino', rango: [{ inicio: 5931, fin: 5938, sector: 'Sector 2 STA' }] },
+            { nombre: 'Palihue', rango: [{ inicio: 276, fin: 296, sector: 'Sector 1 STA' }] },
+            { nombre: 'Palqui', rango: [{ inicio: 6071, fin: 6098, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pamplona', rango: [{ inicio: 6259, fin: 6278, sector: 'Sector 1 STA' }] },
+            { nombre: 'Parcifal', rango: [{ inicio: 5098, fin: 6127, sector: 'Sector 2 STA' }, { inicio: 6229, fin: 6392, sector: 'Sector 5 STA' }] },
+            { nombre: 'PARES ENTRE LA CASTRINA Y OVALLE', rango: [{ inicio: 6148, fin: 6348, sector: 'Sector 1 STA' }] },
+            { nombre: 'Paris', rango: [{ inicio: 5728, fin: 5742, sector: 'Sector 1 STA' }] },
+            { nombre: 'Paula Jara Quemada', rango: [{ inicio: 155, fin: 185, sector: 'Sector 4 STA' }] },
+            { nombre: 'Pedro de Oña', rango: [{ inicio: 386, fin: 399, sector: 'Sector 5 STA' }] },
+            { nombre: 'Pedro Lira', rango: [{ inicio: 385, fin: 395, sector: 'Sector 5 STA' }] },
+            { nombre: 'Pedro Prado Calvo', rango: [{ inicio: 5650, fin: 5660, sector: 'Sector 5 STA' }] },
+            { nombre: 'Pedro Sarmiento', rango: [{ inicio: 311, fin: 319, sector: 'Sector 2 STA' }, { inicio: 340, fin: 350, sector: 'Sector 2 STA' }, { inicio: 345, fin: 379, sector: 'Sector 2 STA' }] },
+            { nombre: 'Pentagrama', rango: [{ inicio: 404, fin: 425, sector: 'Sector 5 STA' }] },
+            { nombre: 'Pica', rango: [{ inicio: 4960, fin: 5089, sector: 'Sector 4 STA' }] },
+            { nombre: 'Pinar del Rio', rango: [{ inicio: 48, fin: 82, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pindapulli', rango: [{ inicio: 278, fin: 294, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pintor Durero', rango: [{ inicio: 5520, fin: 5750, sector: 'Sector 2 STA' }, { inicio: 5319, fin: 5498, sector: 'Sector 3 STA' }, { inicio: 351, fin: 375, sector: 'Sector 5 STA' }] },
+            { nombre: 'Pintor Murillo', rango: [{ inicio: 5540, fin: 5566, sector: 'Sector 2 STA' }, { inicio: 5549, fin: 5593, sector: 'Sector 2 STA' }, { inicio: 5650, fin: 5972, sector: 'Sector 2 STA' }] },
+            { nombre: 'Pintor Velasquez', rango: [{ inicio: 348, fin: 368, sector: 'Sector 3 STA' }] },
+            { nombre: 'Piramide', rango: [{ inicio: 307, fin: 343, sector: 'Sector 3 STA' }, { inicio: 346, fin: 388, sector: 'Sector 3 STA' }, { inicio: 359, fin: 395, sector: 'Sector 3 STA' }, { inicio: 398, fin: 471, sector: 'Sector 3 STA' }, { inicio: 172, fin: 224, sector: 'Sector 4 STA' }, { inicio: 201, fin: 270, sector: 'Sector 4 STA' }, { inicio: 293, fin: 306, sector: 'Sector 4 STA' }] },
+            { nombre: 'Piringue', rango: [{ inicio: 420, fin: 480, sector: 'Sector 5 STA' }] },
+            { nombre: 'Polonia', rango: [{ inicio: 6203, fin: 6298, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pompeya', rango: [{ inicio: 316, fin: 356, sector: 'Sector 2 STA' }] },
+            { nombre: 'Pontevera', rango: [{ inicio: 6271, fin: 6279, sector: 'Sector 1 STA' }] },
+            { nombre: 'Portezuelo', rango: [{ inicio: 4915, fin: 4956, sector: 'Sector 4 STA' }] },
+            { nombre: 'Pozo Almonte', rango: [{ inicio: 201, fin: 245, sector: 'Sector 4 STA' }] },
+            { nombre: 'Pericles', rango: [{ inicio: 305, fin: 348, sector: 'Sector 2 STA' }] },
+            { nombre: 'Principe Igor', rango: [{ inicio: 5948, fin: 5970, sector: 'Sector 5 STA' }] },
+            { nombre: 'Pasaje Aquiles', rango: [{ inicio: 317, fin: 349, sector: 'Sector 2 STA' }] },
+            { nombre: 'Pasaje Antillas', rango: [{ inicio: 6220, fin: 6340, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pasaje Astrolabio', rango: [{ inicio: 303, fin: 347, sector: 'Sector 2 STA' }, { inicio: 342, fin: 382, sector: 'Sector 2 STA' }] },
+            { nombre: 'Pasaje Isla Bahamas', rango: [{ inicio: 350, fin: 385, sector: 'Sector 2 STA' }] },
+            { nombre: 'Pasaje Angol', rango: [{ inicio: 16, fin: 80, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pasaje Asdrubal', rango: [{ inicio: 309, fin: 349, sector: 'Sector 2 STA' }] },
+            { nombre: 'Pasaje Balcacura', rango: [{ inicio: 227, fin: 238, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pasaje Belen', rango: [{ inicio: 5941, fin: 5976, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pasaje Achao', rango: [{ inicio: 229, fin: 235, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pasaje Alemania', rango: [{ inicio: 6202, fin: 6298, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pasaje Anay', rango: [{ inicio: 227, fin: 237, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pasaje Ancud', rango: [{ inicio: 177, fin: 198, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pucon', rango: [{ inicio: 5920, fin: 6041, sector: 'Sector 1 STA' }] },
+            { nombre: 'Puerto Montt', rango: [{ inicio: 5612, fin: 5680, sector: 'Sector 1 STA' }, { inicio: 5615, fin: 5677, sector: 'Sector 1 STA' }, { inicio: 5705, fin: 5830, sector: 'Sector 1 STA' }] },
+            { nombre: 'Puerto Octay', rango: [{ inicio: 5631, fin: 5681, sector: 'Sector 1 STA' }] },
+            { nombre: 'Puerto Varas', rango: [{ inicio: 5613, fin: 5880, sector: 'Sector 1 STA' }] },
+            { nombre: 'Punta Arenas', rango: [{ inicio: 5915, fin: 6283, sector: 'Sector 1 STA' }] },
+            { nombre: 'Puqueldon', rango: [{ inicio: 6382, fin: 6391, sector: 'Sector 1 STA' }] },
+            { nombre: 'Puren', rango: [{ inicio: 6120, fin: 6141, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pureo', rango: [{ inicio: 272, fin: 292, sector: 'Sector 1 STA' }] },
+            { nombre: 'Puyan', rango: [{ inicio: 5655, fin: 5716, sector: 'Sector 1 STA' }] },
+            { nombre: 'Quellon', rango: [{ inicio: 6321, fin: 6399, sector: 'Sector 1 STA' }] },
+            { nombre: 'Quelme', rango: [{ inicio: 272, fin: 291, sector: 'Sector 1 STA' }] },
+            { nombre: 'Queylen', rango: [{ inicio: 6008, fin: 6047, sector: 'Sector 1 STA' }] },
+            { nombre: 'Quillagua', rango: [{ inicio: 251, fin: 257, sector: 'Sector 4 STA' }] },
+            { nombre: 'Quillen', rango: [{ inicio: 178, fin: 188, sector: 'Sector 4 STA' }] },
+            { nombre: 'Rafael Frontaura', rango: [{ inicio: 274, fin: 290, sector: 'Sector 4 STA' }, { inicio: 271, fin: 287, sector: 'Sector 4 STA' }, { inicio: 291, fin: 305, sector: 'Sector 4 STA' }] },
+            { nombre: 'Rahue', rango: [{ inicio: 190, fin: 212, sector: 'Sector 4 STA' }] },
+            { nombre: 'Ramaditas', rango: [{ inicio: 261, fin: 267, sector: 'Sector 4 STA' }] },
+            { nombre: 'Rauco', rango: [{ inicio: 274, fin: 277, sector: 'Sector 1 STA' }] },
+            { nombre: 'Raul Monardes', rango: [{ inicio: 193, fin: 199, sector: 'Sector 4 STA' }] },
+            { nombre: 'Rilan', rango: [{ inicio: 274, fin: 277, sector: 'Sector 1 STA' }] },
+            { nombre: 'Rio Camarones', rango: [{ inicio: 160, fin: 164, sector: 'Sector 4 STA' }] },
+            { nombre: 'RIO SAN LORENZO (Psje)', rango: [{ inicio: 4430, fin: 4580, sector: 'Sector 4 STA' }] },
+            { nombre: 'Roberto Kaminker', rango: [{ inicio: 6273, fin: 6280, sector: 'Sector 1 STA' }] },
+            { nombre: 'Roberto Lopez', rango: [{ inicio: 4805, fin: 4850, sector: 'Sector 4 STA' }] },
+            { nombre: 'Rogers Retes', rango: [{ inicio: 297, fin: 304, sector: 'Sector 4 STA' }] },
+            { nombre: 'Romano de Dominicis', rango: [{ inicio: 352, fin: 382, sector: 'Sector 2 STA' }] },
+            { nombre: 'Rubens', rango: [{ inicio: 4710, fin: 4836, sector: 'Sector 3 STA' }] },
+            { nombre: 'Salvador Reyes', rango: [{ inicio: 397, fin: 399, sector: 'Sector 5 STA' }] },
+            { nombre: 'San Juan', rango: [{ inicio: 5305, fin: 5393, sector: 'Sector 4 STA' }] },
+            { nombre: 'San Nicolas', rango: [{ inicio: 308, fin: 348, sector: 'Sector 2 STA' }, { inicio: 321, fin: 354, sector: 'Sector 3 STA' }, { inicio: 356, fin: 492, sector: 'Sector 3 STA' }, { inicio: 357, fin: 399, sector: 'Sector 3 STA' }, { inicio: 401, fin: 499, sector: 'Sector 3 STA' }, { inicio: 141, fin: 243, sector: 'Sector 1 STA4' }, { inicio: 201, fin: 246, sector: 'Sector 4 STA' }, { inicio: 268, fin: 305, sector: 'Sector 4 STA' }] },
+            { nombre: 'Sandino', rango: [{ inicio: 29, fin: 91, sector: 'Sector 1 STA' }] },
+            { nombre: 'SANTA ROSA', rango: [{ inicio: 4750, fin: 4866, sector: 'Sector 3 STA' }, { inicio: 5050, fin: 5320, sector: 'Sector 3 STA' }] },
+            { nombre: 'SANTA ROSA Y OVALLE', rango: [{ inicio: 5500, fin: 5980, sector: 'Sector 2 STA' }] },
+            { nombre: 'Santiago Ruiseñor', rango: [{ inicio: 4786, fin: 4858, sector: 'Sector 3 STA' }, { inicio: 4915, fin: 5130, sector: 'Sector 3 STA' }] },
+            { nombre: 'Sebastopol', rango: [{ inicio: 280, fin: 419, sector: 'Sector 5 STA' }] },
+            { nombre: 'Sinfonico', rango: [{ inicio: 5740, fin: 5758, sector: 'Sector 5 STA' }] },
+            { nombre: 'Socoroma', rango: [{ inicio: 201, fin: 243, sector: 'Sector 4 STA' }] },
+            { nombre: 'Pasaje Suiza', rango: [{ inicio: 6203, fin: 6298, sector: 'Sector 1 STA' }] },
+            { nombre: 'Tarmelan', rango: [{ inicio: 5945, fin: 5966, sector: 'Sector 5 STA' }] },
+            { nombre: 'Pasaje Tanqui', rango: [{ inicio: 282, fin: 296, sector: 'Sector 1 STA' }] },
+            { nombre: 'Thaiti', rango: [{ inicio: 6220, fin: 6371, sector: 'Sector 1 STA' }] },
+            { nombre: 'Pasaje Tignamar', rango: [{ inicio: 5089, fin: 5190, sector: 'Sector 4 STA' }] },
+            { nombre: 'Tito Mundt', rango: [{ inicio: 384, fin: 399, sector: 'Sector 5 STA' }] },
+            { nombre: 'Pasaje Toconao', rango: [{ inicio: 251, fin: 262, sector: 'Sector 4 STA' }] },
+            { nombre: 'Pasaje Tolten', rango: [{ inicio: 5900, fin: 6041, sector: 'Sector 1 STA' }] },
+            { nombre: 'Tomas de Capanella', rango: [{ inicio: 5348, fin: 4710, sector: 'Sector 2 STA' }, { inicio: 5590, fin: 6041, sector: 'Sector 2 STA' }] },
+            { nombre: 'Toronto', rango: [{ inicio: 114, fin: 135, sector: 'Sector 4 STA' }] },
+            { nombre: 'Turquino', rango: [{ inicio: 5625, fin: 5680, sector: 'Sector 1 STA' }] },
+            { nombre: 'Ureta Cox', rango: [{ inicio: 275, fin: 398, sector: 'Sector 3 STA' }, { inicio: 400, fin: 498, sector: 'Sector 3 STA' }, { inicio: 144, fin: 164, sector: 'Sector 4 STA' }, { inicio: 158, fin: 206, sector: 'Sector 4 STA' }, { inicio: 206, fin: 224, sector: 'Sector 4 STA' }, { inicio: 226, fin: 274, sector: 'Sector 2 STA' }] },
+            { nombre: 'Uthant', rango: [{ inicio: 6258, fin: 6280, sector: 'Sector 1 STA' }] },
+            { nombre: 'Varas Mena', rango: [{ inicio: 307, fin: 348, sector: 'Sector 2 STA' }, { inicio: 349, fin: 500, sector: 'Sector 5 STA' }, { inicio: 124, fin: 299, sector: 'Sector 1 STA' }] },
+            { nombre: 'Vasco Nuñez de Balboa', rango: [{ inicio: 4742, fin: 4858, sector: 'Sector 3 STA' }, { inicio: 4903, fin: 5142, sector: 'Sector 3 STA' }] },
+            { nombre: 'Vecinal', rango: [{ inicio: 5624, fin: 5715, sector: 'Sector 1 STA' }, { inicio: 5717, fin: 5781, sector: 'Sector 1 STA' }, { inicio: 5722, fin: 5782, sector: 'Sector 1 STA' }, { inicio: 5705, fin: 6125, sector: 'Sector 1 STA' }, { inicio: 4710, fin: 4898, sector: 'Sector 4 STA' }, { inicio: 4725, fin: 4995, sector: 'Sector 4 STA' }, { inicio: 4916, fin: 4956, sector: 'Sector 4 STA' }] },
+            { nombre: 'Veronesse', rango: [{ inicio: 5319, fin: 5497, sector: 'Sector 3 STA' }] },
+            { nombre: 'Vicuña Mackenna', rango: [{ inicio: 5769, fin: 5895, sector: 'Sector 1 STA' }, { inicio: 5292, fin: 5591, sector: 'Sector 4 STA' }] },
+            { nombre: 'Vilcun', rango: [{ inicio: 30, fin: 82, sector: 'Sector 1 STA' }] },
+            { nombre: 'Vilna', rango: [{ inicio: 6201, fin: 6398, sector: 'Sector 5 STA' }] },
+            { nombre: 'Visviri', rango: [{ inicio: 199, fin: 207, sector: 'Sector 4 STA' }] },
+            { nombre: 'Volcan Calbuco', rango: [{ inicio: 152, fin: 162, sector: 'Sector 4 STA' }] },
+            { nombre: 'Volcan Shoshueno', rango: [{ inicio: 152, fin: 162, sector: 'Sector 4 STA' }] },
+            { nombre: 'Volcan Villarica', rango: [{ inicio: 4638, fin: 4640, sector: 'Sector 4 STA' }] },
+            { nombre: 'Yal', rango: [{ inicio: 5918, fin: 6016, sector: 'Sector 1 STA' }] },
+            { nombre: 'Zapiga', rango: [{ inicio: 200, fin: 230, sector: 'Sector 4 STA' }] },
+        ];
+
+        function sugerirDireccion() {
+            let input = document.getElementById('direccion');
+            let lista = document.getElementById('sugerenciasDireccion');
+            lista.innerHTML = '';
+
+            if (input.value.length > 0) {
+                direcciones.forEach((dir) => {
+                    if (dir.nombre.toLowerCase().startsWith(input.value.toLowerCase())) {
+                        let elemento = document.createElement('li');
+                        elemento.classList.add('list-group-item');
+                        elemento.textContent = dir.nombre;
+                        elemento.onclick = function () {
+                            input.value = dir.nombre;
+                            lista.innerHTML = '';
+                        };
+                        lista.appendChild(elemento);
+                    }
+                });
+            }
+        }
+
+        function buscarSector() {
+            let direccion = document.getElementById('direccion').value.trim().toLowerCase();
+            let numeracion = parseInt(document.getElementById('numeracion').value, 10);
+            let resultadoTexto = 'Dirección no encontrada o numeración fuera de rango.';
+
+            direcciones.forEach((dir) => {
+                if (dir.nombre.toLowerCase() === direccion) {
+                    dir.rango.forEach((rango) => {
+                        if (numeracion >= rango.inicio && numeracion <= rango.fin) {
+                            if (!rango.lado || (rango.lado === 'par' && numeracion % 2 === 0) || (rango.lado === 'impar' && numeracion % 2 !== 0)) {
+                                resultadoTexto = `La dirección ${direccion} ${numeracion} pertenece a ${sectores[rango.sector] || rango.sector}`;
+                            }
+                        }
+                    });
+                }
+            });
+
+            document.getElementById('resultadoModalTexto').textContent = resultadoTexto;
+            $('#resultadoModal').modal('show');
+        }
+
+        function limpiarFormulario() {
+            document.getElementById('direccion').value = '';
+            document.getElementById('numeracion').value = '';
+            document.getElementById('sugerenciasDireccion').innerHTML = '';
+        }
+    </script>
+</body>
+
+</html>
